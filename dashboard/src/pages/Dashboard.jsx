@@ -197,6 +197,10 @@ export default function Dashboard() {
               <CardContent>
                 {statsLoading ? (
                   <Skeleton className="h-[280px] w-full" />
+                ) : deliveryStatusData.length === 0 ? (
+                  <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
+                    No delivery status data available
+                  </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={280}>
                     <PieChart>
@@ -207,15 +211,15 @@ export default function Dashboard() {
                         outerRadius={85}
                         innerRadius={55}
                         dataKey="value"
+                        nameKey="name"
                         paddingAngle={4}
                       >
                         {deliveryStatusData.map((entry, i) => (
-                          <Cell key={i} fill={entry.fill} />
+                          <Cell key={`cell-${i}`} fill={entry.fill} />
                         ))}
                       </Pie>
-
                       <Tooltip />
-                      <Legend fontSize={12} />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
@@ -363,25 +367,15 @@ export default function Dashboard() {
 
               <TableBody>
                 {(items || []).map((p) => (
-                  <TableRow>
+                  <TableRow key={p._id || p.trackingId}>
                     <TableCell>{p.trackingId}</TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {p.senderName}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {p.receiverName}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {p.originCity}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {p.destinationCity}
-                    </TableCell>
+                    <TableCell className="hidden md:table-cell">{p.senderName}</TableCell>
+                    <TableCell className="hidden md:table-cell">{p.receiverName}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{p.originCity}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{p.destinationCity}</TableCell>
                     <TableCell>{getParcelStatus(p)}</TableCell>
                     <TableCell className="hidden sm:table-cell">
-                      {p.createdAt
-                        ? new Date(p.createdAt).toLocaleDateString()
-                        : "-"}
+                      {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "-"}
                     </TableCell>
                     <TableCell>
                       <Button

@@ -1,7 +1,6 @@
 import { Parcel } from "../models/Parcel.js";
 import { User } from "../models/User.js";
 
-
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const toMonthKey = (date) => {
@@ -26,11 +25,11 @@ export const getLastMonths = (n) => {
     return months;
 };
 
-const arrayToKeyedMap = (rows, keyField, valueField) => {
+const arrayToKeyedMap = (rows = [], keyField, valueField) => {
     const out = {};
     for (const row of rows) {
         if (row && row[keyField] !== undefined) {
-            out[row[keyField]] = row[valueField] || 0
+            out[row[keyField]] = row[valueField] || 0;
         }
     }
     return out;
@@ -48,7 +47,7 @@ const monthKeyProject = (groupIdPath) => ({
             ]
         }
     ]
-})
+});
 
 export const getDashboardStatusData = async () => {
     const months = getLastMonths(12);
@@ -109,20 +108,6 @@ export const getDashboardStatusData = async () => {
                 $project: { _id: 0, key: monthKeyProject("$_id"), users: 1 }
             },
         ]),
-        User.aggregate([
-            {
-                $match: { createdAt: { $gte: startDate } }
-            },
-            {
-                $group: {
-                    _id: { y: { $year: "$createdAt" }, m: { $month: "$createdAt" } },
-                    users: { $sum: 1 },
-                },
-            },
-            {
-                $project: { _id: 0, key: monthKeyProject("$_id"), users: 1 }
-            },
-        ]),
         Parcel.aggregate([
             {
                 $project: {
@@ -133,79 +118,75 @@ export const getDashboardStatusData = async () => {
             },
             {
                 $group: {
-                    _id: "$currentStatus", value: { $sum: 1 }
+                    _id: "$currentStatus",
+                    value: { $sum: 1 }
                 },
             },
             {
-                $project: { _id: 0, status:"$_id", value: 1 }
+                $project: { _id: 0, status: "$_id", value: 1 }
             },
         ]),
-
         Parcel.aggregate([
             {
                 $bucket: {
-                    groupBy: "$weight",
-                    boundaries: [0, 1, 3, 5, 10, 100000000000],
-                    default: "unknown",
+                    groupBy: { $ifNull: ["$weight", 0] },
+                    boundaries: [0, 1, 3, 5, 10, 1000000],
+                    default: "other",
                     output: { count: { $sum: 1 } },
                 },
             },
         ]),
     ]);
 
-
     const totalRevenue = totalRevenueAgg?.[0]?.revenue || 0;
 
     const parcelsByMonth = arrayToKeyedMap(parcelsPerMonthAgg, "key", "parcels");
-    
     const revenueByMonth = arrayToKeyedMap(revenuePerMonthAgg, "key", "revenue");
-    
     const usersByMonth = arrayToKeyedMap(usersPerMonthAgg, "key", "users");
 
     const monthlyParcels = months.map((m) => ({
         month: m.month,
         parcels: parcelsByMonth[m.key] || 0,
-     }));
+    }));
 
     const monthlyRevenue = months.map((m) => ({
         month: m.month,
         revenue: revenueByMonth[m.key] || 0,
-     }));
+    }));
 
     const userGrowth = months.map((m) => ({
         month: m.month,
         users: usersByMonth[m.key] || 0,
-     }));
+    }));
 
-     const statusDistribution = ['arrived', 'in_transit', 'out_for_delivery', 'delivered'].map(s =>{
-        const found = statusAgg.find(r=> r.status === s);
-        return { name: s, value: found ? found.value : 0}
-     })
+    const statusDistribution = ['arrived', 'in_transit', 'out_for_delivery', 'delivered'].map((s) => {
+        const found = (statusAgg || []).find((r) => r.status === s);
+        return { name: s, value: found ? found.value : 0 };
+    });
 
-     const weightDistribution = [
+    const weightDistribution = [
         { id: 0, range: "0-1 kg", count: 0 },
         { id: 1, range: "1-3 kg", count: 0 },
         { id: 2, range: "3-5 kg", count: 0 },
         { id: 3, range: "5-10 kg", count: 0 },
         { id: 4, range: "10+ kg", count: 0 },
-     ];
+    ];
 
-     for (const bucket of weightBucketAgg) {
+    for (const bucket of (weightBucketAgg || [])) {
         if (bucket._id === 0) weightDistribution[0].count = bucket.count;
         else if (bucket._id === 1) weightDistribution[1].count = bucket.count;
         else if (bucket._id === 3) weightDistribution[2].count = bucket.count;
         else if (bucket._id === 5) weightDistribution[3].count = bucket.count;
         else if (bucket._id === 10) weightDistribution[4].count = bucket.count;
-     }
+    }
 
-     return {
-        totals: { parcels: totalParcels, users: totalUsers, revenue: totalRevenue},
+    return {
+        totals: { parcels: totalParcels, users: totalUsers, revenue: totalRevenue },
         monthlyParcels,
         monthlyRevenue,
         statusDistribution,
         userGrowth,
         weightDistribution,
         _meta: { startDate, months },
-     };
-
+    };
 };

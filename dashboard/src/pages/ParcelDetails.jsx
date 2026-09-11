@@ -146,7 +146,7 @@ export default function ParcelDetails() {
                   label="Created"
                   value={
                     parcel.createdAt
-                      ? new Date(parcel.createdAt).toLocaleDateString("en-IND", {
+                      ? new Date(parcel.createdAt).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
